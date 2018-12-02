@@ -6,14 +6,14 @@ import itertools
 import math
 import cv2
 from attrdict import AttrDict
-from dataset_2 import Dataset
-from model_3 import Model
+from datasets.synth import Dataset
+from model import Model
 from networks.residual_network import ResidualNetwork
 from networks.attention_network import AttentionNetwork
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--model_dir", type=str, default="model_3", help="model directory")
-parser.add_argument('--filenames', type=str, nargs="+", default=["train.tfrecord"], help="tfrecord filenames")
+parser.add_argument("--model_dir", type=str, default="model", help="model directory")
+parser.add_argument('--filenames', type=str, nargs="+", default=["synth_train.tfrecord"], help="tfrecord filenames")
 parser.add_argument("--num_epochs", type=int, default=10, help="number of training epochs")
 parser.add_argument("--batch_size", type=int, default=128, help="batch size")
 parser.add_argument("--buffer_size", type=int, default=7000000, help="buffer size to shuffle dataset")
@@ -79,11 +79,15 @@ def main(unused_argv):
                 num_classes=None,
                 data_format="channels_last"
             ),
-            num_units=128,
+            seq2se2_param=AttrDict(
+                lstm_units=128,
+                attention_units=128,
+                attention_layer_size=128
+            ),
             num_classes=63,
             data_format="channels_last",
             accuracy_type=Model.AccuracyType.EDIT_DISTANCE,
-            hyper_params=None
+            hyper_params=AttrDict()
         ),
         model_dir=args.model_dir,
         config=tf.estimator.RunConfig().replace(
@@ -125,6 +129,81 @@ def main(unused_argv):
         )
 
         print(eval_results)
+
+    if args.predict:
+
+        predict_results = classifier.predict(
+            input_fn=lambda: Dataset(
+                filenames=args.filenames,
+                num_epochs=args.num_epochs,
+                batch_size=args.batch_size,
+                buffer_size=args.buffer_size,
+                image_size=[256, 256],
+                data_format="channels_last",
+                string_length=10
+            ).get_next()
+        )
+
+        class_ids = {}
+
+        for i in range(ord("0"), ord("z") + 1):
+
+            if ord("0") <= i <= ord("9"):
+                class_ids[chr(i)] = i - ord("0")
+            elif ord("A") <= i <= ord("Z"):
+                class_ids[chr(i)] = i - ord("A") + class_ids["9"] + 1
+            elif ord("a") <= i <= ord("z"):
+                class_ids[chr(i)] = i - ord("a") + class_ids["Z"] + 1
+
+        class_ids[""] = max(class_ids.values()) + 1
+
+        chars = {class_id: char for char, class_id in class_ids.items()}
+
+        for predict_result in itertools.islice(predict_results, 10):
+
+            attention_map_images = []
+            bounding_box_images = []
+
+            for i in range(predict_result["merged_attention_maps"].shape[0]):
+
+                attention_map_images.append([])
+                bounding_box_images.append([])
+
+                for j in range(predict_result["merged_attention_maps"].shape[1]):
+
+                    merged_attention_map = predict_result["merged_attention_maps"][i, j]
+                    merged_attention_map = scale(merged_attention_map, merged_attention_map.min(), merged_attention_map.max(), 0.0, 1.0)
+                    merged_attention_map = cv2.resize(merged_attention_map, (256, 256))
+                    bounding_box = search_bounding_box(merged_attention_map, 0.5)
+
+                    attention_map_image = np.copy(predict_result["images"])
+                    attention_map_image += np.pad(np.expand_dims(merged_attention_map, axis=-1), [[0, 0], [0, 0], [0, 2]], "constant")
+                    attention_map_images[-1].append(attention_map_image)
+
+                    bounding_box_image = np.copy(predict_result["images"])
+                    bounding_box_image = cv2.rectangle(bounding_box_image, bounding_box[0][::-1], bounding_box[1][::-1], (255, 0, 0), 2)
+                    bounding_box_images[-1].append(bounding_box_image)
+
+            attention_map_images = np.concatenate([
+                np.concatenate(attention_map_images, axis=1)
+                for attention_map_images in attention_map_images
+            ], axis=0)
+
+            bounding_box_images = np.concatenate([
+                np.concatenate(bounding_box_images, axis=1)
+                for bounding_box_images in bounding_box_images
+            ], axis=0)
+
+            attention_map_images = cv2.cvtColor(attention_map_images, cv2.COLOR_BGR2RGB)
+            bounding_box_images = cv2.cvtColor(bounding_box_images, cv2.COLOR_BGR2RGB)
+
+            attention_map_images = scale(attention_map_images, 0.0, 1.0, 0.0, 255.0)
+            bounding_box_images = scale(bounding_box_images, 0.0, 1.0, 0.0, 255.0)
+
+            prediction = "_".join(["".join([chars[class_id] for class_id in predictions]) for predictions in predict_result["predictions"]])
+
+            cv2.imwrite("outputs/{}_attention_map.jpg".format(prediction), attention_map_images)
+            cv2.imwrite("outputs/{}_bounding_box.jpg".format(prediction), bounding_box_images)
 
 
 if __name__ == "__main__":

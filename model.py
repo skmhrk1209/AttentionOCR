@@ -10,10 +10,10 @@ class Model(object):
     class AccuracyType:
         FULL_SEQUENCE, EDIT_DISTANCE = range(2)
 
-    def __init__(self, convolutional_network, num_units, num_classes, data_format, accuracy_type, hyper_params):
+    def __init__(self, convolutional_network, seq2se2_param, num_classes, data_format, accuracy_type, hyper_params):
 
         self.convolutional_network = convolutional_network
-        self.num_units = num_units
+        self.seq2se2_param = seq2se2_param
         self.num_classes = num_classes
         self.data_format = data_format
         self.accuracy_type = accuracy_type
@@ -39,12 +39,12 @@ class Model(object):
         feature_vectors = flatten_images(feature_maps, self.data_format)
 
         lstm_cell = tf.nn.rnn_cell.LSTMCell(
-            num_units=self.num_units,
+            num_units=self.seq2seq_param.lstm_units,
             use_peepholes=True
         )
 
         attention_mechanism = tf.contrib.seq2seq.BahdanauAttention(
-            num_units=self.num_units,
+            num_units=self.seq2se2_param.attention_units,
             memory=feature_vectors
         )
 
@@ -61,49 +61,37 @@ class Model(object):
         attention_lstm_cell = tf.contrib.seq2seq.AttentionWrapper(
             cell=lstm_cell,
             attention_mechanism=attention_mechanism,
-            attention_layer_size=self.num_units,
+            attention_layer_size=self.seq2se2_param.attention_layer_size,
             cell_input_fn=lambda inputs, attention: tf.layers.dense(
                 inputs=tf.concat([inputs, attention], axis=-1),
-                units=self.num_units
+                units=self.seq2se2_param.attention_layer_size
             ),
             output_attention=True
         )
 
-        batch_size = tf.shape(feature_vectors)[0]
-        start_tokens = tf.tile([-1], [batch_size])
-        end_tokens = tf.tile([self.num_classes - 1], [batch_size])
+        batch_size, time_step = tf.unstack(tf.shape(feature_vectors)[:-1], axis=0)
+        start_token = end_token = -1
 
         if mode == tf.estimator.ModeKeys.TRAIN:
 
-            input_labels = tf.concat(
-                values=[tf.expand_dims(start_tokens, axis=1), labels],
-                axis=1
-            )
-
-            sequence_lengths = tf.count_nonzero(
-                input_tensor=tf.not_equal(input_labels, self.num_classes - 1),
-                axis=1,
-                dtype=tf.int32
-            )
-
             helper = tf.contrib.seq2seq.TrainingHelper(
                 inputs=tf.one_hot(
-                    indices=input_labels,
+                    indices=tf.concat([tf.tile([start_token], [batch_size])[:, tf.newaxis], labels[:, :-1]], axis=1),
                     depth=self.num_classes
                 ),
-                sequence_length=sequence_lengths,
+                sequence_length=tf.tile([time_step], [batch_size]),
                 time_major=False
             )
 
         else:
 
             helper = tf.contrib.seq2seq.GreedyEmbeddingHelper(
-                embedding=lambda output_labels: tf.one_hot(
-                    indices=output_labels,
+                embedding=lambda labels: tf.one_hot(
+                    indices=labels,
                     depth=self.num_classes
                 ),
-                start_tokens=start_tokens,
-                end_token=end_tokens[0]
+                start_tokens=tf.tile([start_token], [batch_size]),
+                end_token=end_token
             )
 
         decoder = tf.contrib.seq2seq.BasicDecoder(
@@ -117,27 +105,22 @@ class Model(object):
             decoder=decoder,
             output_time_major=False,
             impute_finished=True,
-            maximum_iterations=None,
+            maximum_iterations=time_step,
             parallel_iterations=os.cpu_count(),
             swap_memory=False,
         )
 
         logits = outputs.rnn_output
 
+        loss = tf.contrib.seq2seq.sequence_loss(
+            logits=logits,
+            targets=labels,
+            weights=tf.sequence_mask(sequence_lengths, dtype=tf.float32),
+            average_across_timesteps=True,
+            average_across_batch=True
+        )
+
         if mode == tf.estimator.ModeKeys.TRAIN:
-
-            output_labels = tf.concat(
-                values=[labels, tf.expand_dims(end_tokens, axis=1)],
-                axis=1
-            )
-
-            loss = tf.contrib.seq2seq.sequence_loss(
-                logits=logits,
-                targets=output_labels,
-                weights=tf.sequence_mask(sequence_lengths, dtype=tf.float32),
-                average_across_timesteps=True,
-                average_across_batch=True
-            )
 
             with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
 
@@ -150,4 +133,23 @@ class Model(object):
                 mode=mode,
                 loss=loss,
                 train_op=train_op
+            )
+
+        if mode == tf.estimator.ModeKeys.EVAL:
+
+            accuracy_functions = {
+                Model.AccuracyType.FULL_SEQUENCE: metrics.full_sequence_accuracy,
+                Model.AccuracyType.EDIT_DISTANCE: metrics.edit_distance_accuracy,
+            }
+
+            accuracy = accuracy_functions[self.accuracy_type](
+                logits=logits,
+                labels=labels,
+                time_major=False
+            )
+
+            return tf.estimator.EstimatorSpec(
+                mode=mode,
+                loss=loss,
+                eval_metric_ops=dict(accuracy=accuracy)
             )

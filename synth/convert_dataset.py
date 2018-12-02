@@ -7,7 +7,6 @@ import glob
 parser = argparse.ArgumentParser()
 parser.add_argument("--filename", type=str, required=True, help="tfrecord filename")
 parser.add_argument("--directory", type=str, required=True, help="path to data directory")
-parser.add_argument("--sequence_length", type=int, default=4, help="max sequence length")
 parser.add_argument("--string_length", type=int, default=10, help="max string length")
 args = parser.parse_args()
 
@@ -28,18 +27,11 @@ with tf.python_io.TFRecordWriter(args.filename) as writer:
 
     for file in glob.glob(os.path.join(args.directory, "*")):
 
-        strings = os.path.splitext(os.path.basename(file))[0].split("_")[1:]
+        string = os.path.splitext(os.path.basename(file))[0].split("_")[1]
 
         label = np.pad(
-            array=[
-                np.pad(
-                    array=[class_ids[char] for char in string],
-                    pad_width=[[0, args.string_length - len(string)]],
-                    mode="constant",
-                    constant_values=class_ids[""]
-                ) for string in strings
-            ],
-            pad_width=[[0, args.sequence_length - len(strings)], [0, 0]],
+            array=[class_ids[char] for char in string],
+            pad_width=[[0, args.string_length - len(string)]],
             mode="constant",
             constant_values=class_ids[""]
         )
