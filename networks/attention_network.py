@@ -1,5 +1,5 @@
 import tensorflow as tf
-import numpy as np
+from .import ops
 from algorithms import *
 
 
@@ -149,7 +149,10 @@ class AttentionNetwork(object):
                                 name="batch_normalization",
                                 reuse=tf.AUTO_REUSE
                             ),
-                            lambda inputs: tf.nn.sigmoid(inputs)
+                            lambda inputs: ops.spatial_softmax(
+                                inputs=inputs,
+                                data_format=self.data_format
+                            )
                         ),
                         sequence=inputs
                     )

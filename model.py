@@ -2,6 +2,7 @@ import tensorflow as tf
 import numpy as np
 import os
 import metrics
+from networks import ops
 from algorithms import *
 
 
@@ -28,15 +29,7 @@ class Model(object):
             training=mode == tf.estimator.ModeKeys.TRAIN
         )
 
-        def flatten_images(inputs, data_format):
-
-            input_shape = inputs.get_shape().as_list()
-            output_shape = ([-1, input_shape[1], np.prod(input_shape[2:4])] if self.data_format == "channels_first" else
-                            [-1, np.prod(input_shape[1:3]), input_shape[3]])
-
-            return tf.reshape(inputs, output_shape)
-
-        feature_vectors = flatten_images(feature_maps, self.data_format)
+        feature_vectors = ops.spatial_flatten(feature_maps, self.data_format)
 
         lstm_cell = tf.nn.rnn_cell.LSTMCell(
             num_units=self.seq2seq_param.lstm_units,
