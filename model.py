@@ -76,7 +76,7 @@ class Model(object):
 
             helper = tf.contrib.seq2seq.TrainingHelper(
                 inputs=tf.one_hot(
-                    indices=tf.concat([tf.tile([start_token], [batch_size])[:, tf.newaxis], labels[:, :-1]], axis=1),
+                    indices=tf.concat([tf.tile([start_token], [batch_size])[:, tf.newaxis], labels[:, :-1]], axis=-1),
                     depth=self.num_classes
                 ),
                 sequence_length=tf.tile([time_step], [batch_size]),
@@ -111,6 +111,21 @@ class Model(object):
         )
 
         logits = outputs.rnn_output
+
+        if mode == tf.estimator.ModeKeys.PREDICT:
+
+            predictions = tf.argmax(
+                input=logits,
+                axis=-1
+            )
+
+            return tf.estimator.EstimatorSpec(
+                mode=mode,
+                predictions=dict(
+                    images=images,
+                    predictions=predictions
+                )
+            )
 
         loss = tf.contrib.seq2seq.sequence_loss(
             logits=logits,
