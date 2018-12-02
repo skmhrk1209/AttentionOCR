@@ -79,7 +79,7 @@ def main(unused_argv):
                 num_classes=None,
                 data_format="channels_last"
             ),
-            seq2se2_param=AttrDict(
+            seq2seq_param=AttrDict(
                 lstm_units=128,
                 attention_units=128,
                 attention_layer_size=128

@@ -10,10 +10,10 @@ class Model(object):
     class AccuracyType:
         FULL_SEQUENCE, EDIT_DISTANCE = range(2)
 
-    def __init__(self, convolutional_network, seq2se2_param, num_classes, data_format, accuracy_type, hyper_params):
+    def __init__(self, convolutional_network, seq2seq_param, num_classes, data_format, accuracy_type, hyper_params):
 
         self.convolutional_network = convolutional_network
-        self.seq2se2_param = seq2se2_param
+        self.seq2seq_param = seq2seq_param
         self.num_classes = num_classes
         self.data_format = data_format
         self.accuracy_type = accuracy_type
@@ -44,7 +44,7 @@ class Model(object):
         )
 
         attention_mechanism = tf.contrib.seq2seq.BahdanauAttention(
-            num_units=self.seq2se2_param.attention_units,
+            num_units=self.seq2seq_param.attention_units,
             memory=feature_vectors
         )
 
@@ -61,10 +61,10 @@ class Model(object):
         attention_lstm_cell = tf.contrib.seq2seq.AttentionWrapper(
             cell=lstm_cell,
             attention_mechanism=attention_mechanism,
-            attention_layer_size=self.seq2se2_param.attention_layer_size,
+            attention_layer_size=self.seq2seq_param.attention_layer_size,
             cell_input_fn=lambda inputs, attention: tf.layers.dense(
                 inputs=tf.concat([inputs, attention], axis=-1),
-                units=self.seq2se2_param.attention_layer_size
+                units=self.seq2seq_param.attention_layer_size
             ),
             output_attention=True
         )
