@@ -1,5 +1,6 @@
 import tensorflow as tf
-from .import ops
+import os
+import ops
 from algorithms import *
 
 
@@ -40,7 +41,7 @@ class AttentionNetwork(object):
                             ),
                             lambda inputs: tf.layers.batch_normalization(
                                 inputs=inputs,
-                                axis=1 if self.data_format == "channels_first" else 3,
+                                axis=1 if ops.channels_first(self.data_format) else 3,
                                 training=training,
                                 fused=True,
                                 name="batch_normalization",
@@ -51,7 +52,7 @@ class AttentionNetwork(object):
                         sequence=inputs
                     )
 
-            shape = inputs.shape.as_list()
+            shape = ops.static_shape(inputs)
 
             inputs = map_innermost_element(
                 function=lambda inputs: tf.layers.flatten(inputs),
@@ -69,13 +70,40 @@ class AttentionNetwork(object):
                         ) for num_units in rnn_param.num_units
                     ])
 
+                    '''
                     inputs = map_innermost_element(
                         function=lambda inputs: tf.nn.static_rnn(
                             cell=multi_cell,
                             inputs=[inputs] * rnn_param.sequence_length,
-                            dtype=tf.float32,
+                            initial_state=multi_cell.zero_state(
+                                batch_size=tf.shape(inputs)[0],
+                                dtype=tf.float32
+                            ),
                             scope="rnn"
                         )[0],
+                        sequence=inputs
+                    )
+                    '''
+
+                    inputs = map_innermost_element(
+                        function=lambda inputs: tf.unstack(
+                            value=tf.nn.dynamic_rnn(
+                                cell=multi_cell,
+                                inputs=tf.tile(
+                                    input=[inputs],
+                                    multiples=[rnn_param.sequence_length, 1, 1]
+                                ),
+                                initial_state=multi_cell.zero_state(
+                                    batch_size=tf.shape(inputs)[0],
+                                    dtype=tf.float32
+                                ),
+                                parallel_iterations=os.cpu_count(),
+                                swap_memory=True,
+                                time_major=True,
+                                scope="rnn"
+                            )[0],
+                            axis=0
+                        ),
                         sequence=inputs
                     )
 
@@ -108,7 +136,7 @@ class AttentionNetwork(object):
                             ),
                             lambda inputs: tf.layers.batch_normalization(
                                 inputs=inputs,
-                                axis=1 if self.data_format == "channels_first" else 3,
+                                axis=1 if ops.channels_first(self.data_format) else 3,
                                 training=training,
                                 fused=True,
                                 name="batch_normalization",
@@ -143,7 +171,7 @@ class AttentionNetwork(object):
                             ),
                             lambda inputs: tf.layers.batch_normalization(
                                 inputs=inputs,
-                                axis=1 if self.data_format == "channels_first" else 3,
+                                axis=1 if ops.channels_first(self.data_format) else 3,
                                 training=training,
                                 fused=True,
                                 name="batch_normalization",
