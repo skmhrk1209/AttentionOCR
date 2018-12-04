@@ -2,7 +2,7 @@ import tensorflow as tf
 import numpy as np
 import os
 import metrics
-from networks import ops
+import ops
 from algorithms import *
 
 
@@ -28,6 +28,8 @@ class Model(object):
             inputs=images,
             training=mode == tf.estimator.ModeKeys.TRAIN
         )
+
+        height, width = ops.spatial_shape(feature_maps, self.data_format)
 
         feature_vectors = ops.spatial_flatten(feature_maps, self.data_format)
 
@@ -55,6 +57,7 @@ class Model(object):
             cell=lstm_cell,
             attention_mechanism=attention_mechanism,
             attention_layer_size=self.seq2seq_param.attention_layer_size,
+            alignment_history=True,
             cell_input_fn=lambda inputs, attention: tf.layers.dense(
                 inputs=tf.concat([inputs, attention], axis=-1),
                 units=self.seq2seq_param.attention_layer_size
@@ -105,6 +108,9 @@ class Model(object):
 
         logits = outputs.rnn_output
 
+        attention_maps = state.alignment_history.stack()
+        attention_maps = tf.reshape(attention_maps, [time_step, batch_size, height, width])
+
         if mode == tf.estimator.ModeKeys.PREDICT:
 
             predictions = tf.argmax(
@@ -116,6 +122,7 @@ class Model(object):
                 mode=mode,
                 predictions=dict(
                     images=images,
+                    attention_maps=attention_maps,
                     predictions=predictions
                 )
             )
@@ -127,6 +134,19 @@ class Model(object):
             average_across_timesteps=True,
             average_across_batch=True
         )
+
+        # ==========================================================================================
+        tf.summary.image("images", images, max_outputs=2)
+
+        map(
+            function=lambda indices_attention_maps: tf.summary.image(
+                name="attention_maps_{}".format("_".join(map(str, indices_attention_maps[0]))),
+                tensor=indices_attention_maps[1],
+                max_outputs=2
+            ),
+            sequence=enumerate(attention_maps)
+        )
+        # ==========================================================================================
 
         if mode == tf.estimator.ModeKeys.TRAIN:
 
