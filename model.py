@@ -132,10 +132,10 @@ class Model(object):
         predictions = tf.argmax(logits, axis=-1)
 
         attention_maps = state.alignment_history.stack()
-        attention_maps = tf.expand_dims(tf.reshape(
+        attention_maps = tf.reshape(
             tensor=attention_maps,
             shape=[time_step, batch_size] + spatial_shape(feature_maps, self.channels_first)
-        ), axis=-1)
+        )
 
         if mode == tf.estimator.ModeKeys.PREDICT:
 
