@@ -113,6 +113,7 @@ class Model(object):
         predictions = tf.argmax(logits, axis=-1)
 
         attention_maps = state.alignment_history.stack()
+        print(attention_maps.shape)
         attention_maps = map(lambda attention_maps: ops.spatial_unflatten(
             inputs=attention_maps,
             spatial_shape=ops.spatial_shape(
