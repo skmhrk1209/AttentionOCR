@@ -30,17 +30,10 @@ class Model(object):
             training=mode == tf.estimator.ModeKeys.TRAIN
         )
 
-        def spatial_flatten(inputs, channels_first):
-
-            inputs_shape = inputs.get_shape().as_list()
-            outputs_shape = ([-1, inputs_shape[1], np.prod(inputs_shape[2:])] if channels_first else
-                             [-1, np.prod(inputs_shape[1:-1]), inputs_shape[-1]])
-
-            return tf.reshape(inputs, outputs_shape)
-
-        height, width = ops.spatial_shape(feature_maps, self.data_format)
-
-        feature_vectors = ops.spatial_flatten(feature_maps, self.data_format)
+        feature_vectors = ops.spatial_flatten(
+            inputs=feature_maps,
+            channels_first=self.channels_first
+        )
 
         lstm_cell = tf.nn.rnn_cell.LSTMCell(
             num_units=self.seq2seq_param.lstm_units,
@@ -74,8 +67,7 @@ class Model(object):
             output_attention=True
         )
 
-        batch_size = tf.shape(labels)[0]
-        time_step = labels.shape.as_list()[-1]
+        batch_size, time_step = tf.unstack(tf.shape(labels), axis=0)
         start_token = end_token = -1
 
         if mode == tf.estimator.ModeKeys.TRAIN:
@@ -118,15 +110,19 @@ class Model(object):
 
         logits = outputs.rnn_output
 
+        predictions = tf.argmax(logits, axis=-1)
+
         attention_maps = state.alignment_history.stack()
-        attention_maps = tf.reshape(attention_maps, [time_step, batch_size, height, width])
+        attention_maps = map(lambda attention_maps: ops.spatial_unflatten(
+            inputs=attention_maps,
+            spatial_shape=ops.spatial_shape(
+                inputs=feature_maps,
+                channels_first=self.channels_first
+            ),
+            channels_first=self.channels_first
+        ), tf.unstack(attention_maps, axis=0))
 
         if mode == tf.estimator.ModeKeys.PREDICT:
-
-            predictions = tf.argmax(
-                input=logits,
-                axis=-1
-            )
 
             return tf.estimator.EstimatorSpec(
                 mode=mode,
@@ -148,14 +144,11 @@ class Model(object):
         # ==========================================================================================
         tf.summary.image("images", images, max_outputs=2)
 
-        map(
-            function=lambda indices_attention_maps: tf.summary.image(
-                name="attention_maps_{}".format("_".join(map(str, indices_attention_maps[0]))),
-                tensor=indices_attention_maps[1],
-                max_outputs=2
-            ),
-            sequence=enumerate(tf.unstack(attention_maps))
-        )
+        map(lambda indices_attention_maps: tf.summary.image(
+            name="attention_maps_{}".format("_".join(map(str, indices_attention_maps[0]))),
+            tensor=indices_attention_maps[1],
+            max_outputs=2
+        ), enumerate(attention_maps))
         # ==========================================================================================
 
         if mode == tf.estimator.ModeKeys.TRAIN:
