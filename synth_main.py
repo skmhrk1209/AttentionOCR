@@ -41,7 +41,7 @@ def main(unused_argv):
                     AttrDict(filters=128, strides=[2, 2], blocks=2),
                 ],
                 num_classes=None,
-                data_format="channels_last"
+                channels_first=False
             ),
             seq2seq_param=AttrDict(
                 lstm_units=128,
@@ -49,7 +49,7 @@ def main(unused_argv):
                 attention_layer_size=128
             ),
             num_classes=63,
-            data_format="channels_last",
+            channels_first=False,
             accuracy_type=Model.AccuracyType.EDIT_DISTANCE,
             hyper_params=AttrDict()
         ),
@@ -73,7 +73,7 @@ def main(unused_argv):
                 batch_size=args.batch_size,
                 buffer_size=args.buffer_size,
                 image_size=[256, 256],
-                data_format="channels_last",
+                channels_first=False,
                 string_length=10
             ).get_next()
         )
@@ -87,7 +87,7 @@ def main(unused_argv):
                 batch_size=args.batch_size,
                 buffer_size=args.buffer_size,
                 image_size=[256, 256],
-                data_format="channels_last",
+                channels_first=False",
                 string_length=10
             ).get_next()
         )
@@ -103,7 +103,7 @@ def main(unused_argv):
                 batch_size=args.batch_size,
                 buffer_size=args.buffer_size,
                 image_size=[256, 256],
-                data_format="channels_last",
+                channels_first=False,
                 string_length=10
             ).get_next()
         )
