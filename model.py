@@ -74,7 +74,8 @@ class Model(object):
             output_attention=True
         )
 
-        batch_size, time_step = tf.unstack(tf.shape(labels), axis=0)
+        batch_size = tf.shape(labels)[0]
+        time_step = labels.shape.as_list()[-1]
         start_token = end_token = -1
 
         if mode == tf.estimator.ModeKeys.TRAIN:
@@ -147,13 +148,13 @@ class Model(object):
         # ==========================================================================================
         tf.summary.image("images", images, max_outputs=2)
 
-        tf.map_fn(
-            fn=lambda attention_maps: tf.summary.image(
-                name="attention_maps",
-                tensor=attention_maps,
+        map(
+            function=lambda indices_attention_maps: tf.summary.image(
+                name="attention_maps_{}".format("_".join(map(str, indices_attention_maps[0]))),
+                tensor=indices_attention_maps[1],
                 max_outputs=2
             ),
-            elems=attention_maps
+            sequence=enumerate(tf.unstack(attention_maps))
         )
         # ==========================================================================================
 
