@@ -2,8 +2,23 @@ import tensorflow as tf
 import numpy as np
 import os
 import metrics
-import ops
 from algorithms import *
+
+
+def spatial_shape(inputs, channels_first):
+
+    inputs_shape = inputs.get_shape().as_list()
+
+    return inputs_shape[2:] if channels_first else inputs_shape[1:-1]
+
+
+def spatial_flatten(inputs, channels_first):
+
+    inputs_shape = inputs.get_shape().as_list()
+    outputs_shape = ([-1, inputs_shape[1], np.prod(inputs_shape[2:])] if channels_first else
+                     [-1, np.prod(inputs_shape[1:-1]), inputs_shape[-1]])
+
+    return tf.reshape(inputs, outputs_shape)
 
 
 class Model(object):
@@ -30,7 +45,7 @@ class Model(object):
             training=mode == tf.estimator.ModeKeys.TRAIN
         )
 
-        feature_vectors = ops.spatial_flatten(
+        feature_vectors = spatial_flatten(
             inputs=feature_maps,
             channels_first=self.channels_first
         )
@@ -67,8 +82,11 @@ class Model(object):
             output_attention=True
         )
 
-        batch_size = ops.dynamic_shape(labels)[0]
-        time_step = ops.static_shape(labels)[1]
+        batch_size, time_step = [
+            static_size or dynamic_size for static_size, dynamic_size
+            in zip(labels.get_shape().as_list(), tf.unstack(tf.shape(labels), axis=0))
+        ]
+
         start_token = end_token = -1
 
         if mode == tf.estimator.ModeKeys.TRAIN:
@@ -110,24 +128,13 @@ class Model(object):
         )
 
         logits = outputs.rnn_output
-
         predictions = tf.argmax(logits, axis=-1)
 
         attention_maps = state.alignment_history.stack()
         attention_maps = tf.reshape(
-            attention_maps, 
-            [time_step, batch_size] + ops.spatial_shape(feature_maps, self.channels_first)
+            tensor=attention_maps,
+            shape=[time_step, batch_size] + spatial_shape(feature_maps, self.channels_first)
         )
-        '''
-        attention_maps = map(lambda attention_maps: ops.spatial_unflatten(
-            inputs=attention_maps,
-            spatial_shape=ops.spatial_shape(
-                inputs=feature_maps,
-                channels_first=self.channels_first
-            ),
-            channels_first=self.channels_first
-        ), tf.unstack(attention_maps, axis=0))
-        '''
 
         if mode == tf.estimator.ModeKeys.PREDICT:
 
