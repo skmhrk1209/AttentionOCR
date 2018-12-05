@@ -153,7 +153,7 @@ class Model(object):
                 tensor=indices_attention_maps[1],
                 max_outputs=2
             ),
-            sequence=enumerate(attention_maps)
+            sequence=enumerate(tf.unstack(attention_maps))
         )
         # ==========================================================================================
 
