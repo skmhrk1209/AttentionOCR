@@ -159,9 +159,9 @@ class Model(object):
         # ==========================================================================================
         tf.summary.image("images", images, max_outputs=2)
 
-        list(map(lambda indices_attention_maps: tf.summary.image(
-            name="attention_maps_{}".format("_".join(map(str, indices_attention_maps[0]))),
-            tensor=indices_attention_maps[1],
+        list(map(lambda index_attention_maps: tf.summary.image(
+            name="attention_maps_{}".format(index_attention_maps[0]),
+            tensor=index_attention_maps[1],
             max_outputs=2
         ), enumerate(tf.unstack(attention_maps, axis=0))))
         # ==========================================================================================
