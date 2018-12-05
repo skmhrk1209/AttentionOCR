@@ -155,7 +155,7 @@ class Model(object):
             name="attention_maps_{}".format("_".join(map(str, indices_attention_maps[0]))),
             tensor=indices_attention_maps[1],
             max_outputs=2
-        ), enumerate(attention_maps))
+        ), enumerate(tf.unstack(attention_maps, axis=0)))
         # ==========================================================================================
 
         if mode == tf.estimator.ModeKeys.TRAIN:
