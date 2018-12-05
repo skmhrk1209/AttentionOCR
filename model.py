@@ -128,6 +128,7 @@ class Model(object):
         )
 
         logits = outputs.rnn_output
+
         predictions = tf.argmax(logits, axis=-1)
 
         attention_maps = state.alignment_history.stack()
