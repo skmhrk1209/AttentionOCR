@@ -11,12 +11,13 @@ class Model(object):
     class AccuracyType:
         FULL_SEQUENCE, EDIT_DISTANCE = range(2)
 
-    def __init__(self, convolutional_network, seq2seq_param, num_classes, data_format, accuracy_type, hyper_params):
+    def __init__(self, convolutional_network, seq2seq_param, num_classes, channels_first, accuracy_type, hyper_params):
 
         self.convolutional_network = convolutional_network
         self.seq2seq_param = seq2seq_param
         self.num_classes = num_classes
-        self.data_format = data_format
+        self.channels_first = channels_first
+        self.data_format = "channels_first" if channels_first else "channels_last"
         self.accuracy_type = accuracy_type
         self.hyper_params = hyper_params
 
@@ -28,6 +29,14 @@ class Model(object):
             inputs=images,
             training=mode == tf.estimator.ModeKeys.TRAIN
         )
+
+        def spatial_flatten(inputs, channels_first):
+
+            inputs_shape = inputs.get_shape().as_list()
+            outputs_shape = ([-1, inputs_shape[1], np.prod(inputs_shape[2:])] if channels_first else
+                             [-1, np.prod(inputs_shape[1:-1]), inputs_shape[-1]])
+
+            return tf.reshape(inputs, outputs_shape)
 
         height, width = ops.spatial_shape(feature_maps, self.data_format)
 
