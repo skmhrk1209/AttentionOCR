@@ -114,7 +114,11 @@ class Model(object):
         predictions = tf.argmax(logits, axis=-1)
 
         attention_maps = state.alignment_history.stack()
-        print(attention_maps.shape)
+        attention_maps = tf.reshape(
+            attention_maps, 
+            [time_step, batch_size] + ops.spatial_shape(feature_maps, self.channels_first)
+        )
+        '''
         attention_maps = map(lambda attention_maps: ops.spatial_unflatten(
             inputs=attention_maps,
             spatial_shape=ops.spatial_shape(
@@ -123,6 +127,7 @@ class Model(object):
             ),
             channels_first=self.channels_first
         ), tf.unstack(attention_maps, axis=0))
+        '''
 
         if mode == tf.estimator.ModeKeys.PREDICT:
 
