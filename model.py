@@ -67,7 +67,8 @@ class Model(object):
             output_attention=True
         )
 
-        batch_size, time_step = tf.unstack(tf.shape(labels), axis=0)
+        batch_size = ops.dynamic_shape(inputs)[0]
+        time_step = ops.static_shape(inputs)[1]
         start_token = end_token = -1
 
         if mode == tf.estimator.ModeKeys.TRAIN:
