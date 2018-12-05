@@ -148,7 +148,7 @@ class Model(object):
         tf.summary.image("images", images, max_outputs=2)
 
         tf.map_fn(
-            map_fn=lambda attention_maps: tf.summary.image(
+            fn=lambda attention_maps: tf.summary.image(
                 name="attention_maps",
                 tensor=attention_maps,
                 max_outputs=2
