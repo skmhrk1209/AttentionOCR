@@ -87,7 +87,7 @@ def main(unused_argv):
                 batch_size=args.batch_size,
                 buffer_size=args.buffer_size,
                 image_size=[256, 256],
-                channels_first=False",
+                channels_first=False,
                 string_length=10
             ).get_next()
         )
