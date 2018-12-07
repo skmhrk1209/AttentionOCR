@@ -5,7 +5,7 @@ import argparse
 import itertools
 import math
 import cv2
-import image
+import image as img
 from attrdict import AttrDict
 from datasets.synth import Dataset
 from model import Model
@@ -138,7 +138,7 @@ def main(unused_argv):
                     merged_attention_map = predict_result["attention_maps"][i, j]
                     merged_attention_map = scale(merged_attention_map, merged_attention_map.min(), merged_attention_map.max(), 0.0, 1.0)
                     merged_attention_map = cv2.resize(merged_attention_map, (256, 256))
-                    image.bounding_box = search_bounding_box(merged_attention_map, 0.5)
+                    bounding_box = img.search_bounding_box(merged_attention_map, 0.5)
 
                     attention_map_image = np.copy(predict_result["images"])
                     attention_map_image += np.pad(np.expand_dims(merged_attention_map, axis=-1), [[0, 0], [0, 0], [0, 2]], "constant")
@@ -161,8 +161,8 @@ def main(unused_argv):
             attention_map_images = cv2.cvtColor(attention_map_images, cv2.COLOR_BGR2RGB)
             bounding_box_images = cv2.cvtColor(bounding_box_images, cv2.COLOR_BGR2RGB)
 
-            attention_map_images = image.scale(attention_map_images, 0.0, 1.0, 0.0, 255.0)
-            bounding_box_images = image.scale(bounding_box_images, 0.0, 1.0, 0.0, 255.0)
+            attention_map_images = img.scale(attention_map_images, 0.0, 1.0, 0.0, 255.0)
+            bounding_box_images = img.scale(bounding_box_images, 0.0, 1.0, 0.0, 255.0)
 
             prediction = "_".join(["".join([chars[class_id] for class_id in predictions]) for predictions in predict_result["predictions"]])
 
