@@ -68,12 +68,11 @@ def convert_dataset(input_directory, output_filename, string_length):
 
     with tf.python_io.TFRecordWriter(output_filename) as writer:
 
-        class_ids = {
-            *{chr(j): i for i, j in enumerate(range(ord("0"), ord("9") + 1), 0)},
-            *{chr(j): i for i, j in enumerate(range(ord("A"), ord("Z") + 1), class_ids["9"] + 1)},
-            *{chr(j): i for i, j in enumerate(range(ord("a"), ord("z") + 1), class_ids["Z"] + 1)},
-            *{"": max(class_ids.values()) + 1}
-        }
+        class_ids = {}
+        class_ids.update({chr(j): i for i, j in enumerate(range(ord("0"), ord("9") + 1), 0)})
+        class_ids.update({chr(j): i for i, j in enumerate(range(ord("A"), ord("Z") + 1), class_ids["9"] + 1)})
+        class_ids.update({chr(j): i for i, j in enumerate(range(ord("a"), ord("z") + 1), class_ids["Z"] + 1)}),
+        class_ids.update({"": max(class_ids.values()) + 1})
 
         for input_filename in glob.glob(os.path.join(input_directory, "*")):
 
